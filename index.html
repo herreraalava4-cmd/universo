@@ -1,0 +1,985 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="color-scheme" content="dark">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Universo">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Universo</title>
+<style>
+:root{
+  --fg:#e9f0ff; --dim:#8f9bb8; --acc:#5cc8ff; --acc2:#ffa24a;
+  --glass:rgba(6,10,20,.66); --line:rgba(140,170,255,.18);
+  --st:env(safe-area-inset-top,0px); --sb:env(safe-area-inset-bottom,0px);
+  --sl:env(safe-area-inset-left,0px); --sr:env(safe-area-inset-right,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#000;color:var(--fg);overflow:hidden;overscroll-behavior:none;
+  font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;user-select:none;-webkit-user-select:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer}
+svg{display:block;width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.off{opacity:0;pointer-events:none!important}
+.off *{pointer-events:none!important}
+
+/* ---------- pantalla de inicio ---------- */
+#intro{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:space-between;align-items:center;
+  padding:calc(var(--st) + 12vh) 24px calc(var(--sb) + 28px);text-align:center;transition:opacity .8s;
+  background:radial-gradient(ellipse at 50% 45%,rgba(0,0,0,0) 0,rgba(0,0,0,.55) 75%)}
+#intro h1{margin:0;font-weight:200;font-size:clamp(34px,11vw,64px);letter-spacing:.32em;text-indent:.32em;
+  background:linear-gradient(90deg,#9fdcff,#fff 50%,#ffc48a);-webkit-background-clip:text;background-clip:text;color:transparent}
+#intro p{margin:14px 0 0;color:var(--dim);font-size:15px}
+.actions{display:flex;flex-direction:column;align-items:center;gap:12px;width:min(320px,100%)}
+.big{width:100%;padding:16px 0;border-radius:999px;font-size:18px;font-weight:600;letter-spacing:.06em;color:#001018;
+  background:linear-gradient(90deg,#5cc8ff,#9fe7ff);box-shadow:0 0 28px rgba(92,200,255,.45)}
+.ghost{width:100%;padding:13px 0;border-radius:999px;border:1px solid var(--line);background:rgba(10,16,30,.55);font-weight:500}
+.ghost.danger{color:#ff9d8a}
+.note{margin:2px 0 0!important;font-size:13px!important;min-height:1.4em}
+.hints{list-style:none;margin:10px 0 0;padding:0;color:var(--dim);font-size:12.5px;line-height:1.7}
+
+/* ---------- controles en vuelo ---------- */
+#hud{position:fixed;inset:0;pointer-events:none;transition:opacity .45s}
+#hud>*{pointer-events:auto}
+.topbar{position:absolute;top:calc(var(--st) + 10px);right:calc(var(--sr) + 10px);display:flex;gap:8px}
+.ico{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--glass);
+  border:1px solid var(--line);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.ico.on{color:var(--acc);border-color:rgba(92,200,255,.5)}
+.player{position:absolute;left:calc(var(--sl) + 12px);right:calc(var(--sr) + 12px);bottom:calc(var(--sb) + 12px);
+  max-width:520px;margin:0 auto;padding:12px 14px 10px;border-radius:22px;background:var(--glass);border:1px solid var(--line);
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.meta{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+#song{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+#time{color:var(--dim);font-size:12px;font-variant-numeric:tabular-nums}
+.ctrl{display:flex;justify-content:space-between;align-items:center;margin-top:4px}
+.ctrl .ico{background:none;border-color:transparent;-webkit-backdrop-filter:none;backdrop-filter:none}
+.ctrl .play{width:56px;height:56px;background:rgba(92,200,255,.14);border-color:rgba(92,200,255,.35)}
+.ctrl .play svg{width:28px;height:28px}
+
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:none;margin:0;touch-action:none}
+input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:4px;background:rgba(140,170,255,.25)}
+input[type=range]::-moz-range-track{height:4px;border-radius:4px;background:rgba(140,170,255,.25)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;margin-top:-7px;border-radius:50%;background:var(--acc);box-shadow:0 0 10px rgba(92,200,255,.7)}
+input[type=range]::-moz-range-thumb{width:18px;height:18px;border:0;border-radius:50%;background:var(--acc)}
+
+/* ---------- ajustes ---------- */
+#sheet{position:fixed;left:0;right:0;bottom:0;max-height:78vh;display:flex;flex-direction:column;
+  background:rgba(4,7,14,.92);border-top:1px solid var(--line);border-radius:22px 22px 0 0;
+  -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);transition:transform .35s ease,opacity .35s;
+  padding-bottom:var(--sb);max-width:620px;margin:0 auto}
+#sheet.off{transform:translateY(40px)}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;padding:14px 16px 6px 20px}
+.sheet-head h2{margin:0;font-size:18px;font-weight:600}
+.sheet-body{overflow-y:auto;padding:0 20px 22px;-webkit-overflow-scrolling:touch;user-select:none}
+h3{margin:18px 0 6px;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:4px 12px;padding:4px 0}
+.row input[type=range]{grid-column:1 / -1}
+.row output{color:var(--acc);font-size:13px;font-variant-numeric:tabular-nums}
+.sw{grid-template-columns:1fr auto;padding:8px 0}
+.sw input{-webkit-appearance:none;appearance:none;width:46px;height:28px;border-radius:999px;background:rgba(140,170,255,.22);
+  position:relative;transition:background .2s;margin:0;flex:none}
+.sw input::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#dfe8ff;transition:transform .2s}
+.sw input:checked{background:var(--acc)}
+.sw input:checked::after{transform:translateX(18px)}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button,.chip{padding:9px 14px;border-radius:999px;border:1px solid var(--line);background:rgba(10,16,30,.6);font-size:14px}
+.seg button.on,.chip.on{border-color:var(--acc);color:var(--acc);background:rgba(92,200,255,.1)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{display:flex;align-items:center;gap:8px}
+.chip i{width:34px;height:10px;border-radius:5px;display:block}
+#songs{list-style:none;margin:6px 0 10px;padding:0;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+#songs:empty{display:none}
+#songs li{display:flex;align-items:center;gap:8px;padding:0 4px 0 14px;min-height:46px;border-top:1px solid var(--line)}
+#songs li:first-child{border-top:0}
+#songs li.now{color:var(--acc)}
+#songs li span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:12px 0}
+#songs li .ico{width:38px;height:38px;background:none;border-color:transparent;color:var(--dim)}
+#songs li .ico svg{width:18px;height:18px}
+.btns{display:flex;gap:10px}
+.btns .ghost{padding:11px 0}
+.foot{margin:18px 0 0;color:var(--dim);font-size:12.5px;line-height:1.7}
+.link{margin-top:12px;color:var(--dim);text-decoration:underline;font-size:13px}
+
+#toast{position:fixed;left:50%;top:calc(var(--st) + 18px);transform:translateX(-50%);max-width:86vw;padding:9px 16px;border-radius:999px;
+  background:var(--glass);border:1px solid var(--line);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:opacity .4s;pointer-events:none}
+#fatal{position:fixed;inset:0;display:none;place-items:center;padding:30px;text-align:center;color:var(--dim)}
+</style>
+</head>
+<body>
+<canvas id="c" tabindex="-1"></canvas>
+
+<section id="intro">
+  <div>
+    <h1>UNIVERSO</h1>
+    <p>Viaja entre las estrellas con tu música.<br>Mueve el teléfono para mirar a tu alrededor.</p>
+  </div>
+  <div class="actions">
+    <button id="go" class="big">Despegar</button>
+    <button id="pickIntro" class="ghost">Elegir música</button>
+    <p id="introSongs" class="note"></p>
+    <ul class="hints">
+      <li>Toca la pantalla: controles</li>
+      <li>Mantén el dedo: velocidad luz</li>
+      <li>Doble toque: mirar al frente</li>
+    </ul>
+  </div>
+</section>
+
+<div id="hud" class="off">
+  <div class="topbar">
+    <button id="bCenter" class="ico" aria-label="Mirar al frente"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
+    <button id="bFs" class="ico" aria-label="Pantalla completa"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    <button id="bCfg" class="ico" aria-label="Ajustes"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg></button>
+  </div>
+  <div class="player">
+    <div class="meta"><span id="song">Sin música</span><span id="time"></span></div>
+    <input id="seek" type="range" min="0" max="1000" value="0" aria-label="Posición de la canción">
+    <div class="ctrl">
+      <button id="bAdd" class="ico" aria-label="Añadir canciones"><svg viewBox="0 0 24 24"><path d="M9 18V6l10-2v9"/><circle cx="6.5" cy="18" r="2.5"/><path d="M19 16v6M16 19h6"/></svg></button>
+      <button id="bPrev" class="ico" aria-label="Anterior"><svg viewBox="0 0 24 24"><path d="M18 6l-8 6 8 6z" fill="currentColor"/><path d="M6 6v12"/></svg></button>
+      <button id="bPlay" class="ico play" aria-label="Reproducir"><svg viewBox="0 0 24 24" id="playIco"><path d="M8 5l12 7-12 7z" fill="currentColor"/></svg></button>
+      <button id="bNext" class="ico" aria-label="Siguiente"><svg viewBox="0 0 24 24"><path d="M6 6l8 6-8 6z" fill="currentColor"/><path d="M18 6v12"/></svg></button>
+      <button id="bShuf" class="ico" aria-label="Aleatorio"><svg viewBox="0 0 24 24"><path d="M3 7h3c5 0 7 10 12 10h3M3 17h3c2 0 3.4-1.6 4.6-3.6M13.4 9.6C14.6 8.4 16 7 18 7h3M18 4l3 3-3 3M18 14l3 3-3 3"/></svg></button>
+    </div>
+  </div>
+</div>
+
+<div id="sheet" class="off" role="dialog" aria-label="Ajustes">
+  <div class="sheet-head"><h2>Ajustes</h2>
+    <button id="bClose" class="ico" aria-label="Cerrar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div class="sheet-body">
+    <h3>Viaje</h3>
+    <label class="row"><span>Velocidad</span><output data-o="speed"></output><input type="range" data-k="speed" min="0.1" max="3" step="0.05"></label>
+    <label class="row"><span>Largo de las estelas</span><output data-o="streak"></output><input type="range" data-k="streak" min="0.1" max="3" step="0.05"></label>
+    <label class="row"><span>Cantidad de estrellas</span><output data-o="count"></output><input type="range" data-k="count" min="1000" max="16000" step="500"></label>
+    <label class="row"><span>Campo de visión</span><output data-o="fov"></output><input type="range" data-k="fov" min="35" max="100" step="1"></label>
+    <label class="row"><span>Nebulosa de fondo</span><output data-o="nebula"></output><input type="range" data-k="nebula" min="0" max="1.5" step="0.05"></label>
+
+    <h3>Colores</h3>
+    <div class="chips" id="pal"></div>
+
+    <h3>Rumbo</h3>
+    <div class="seg" data-k="heading"><button data-v="fixed">Recto, miro alrededor</button><button data-v="follow">Voy hacia donde miro</button></div>
+
+    <h3>Movimiento y música</h3>
+    <label class="row sw"><span>Usar el giroscopio</span><input type="checkbox" data-k="gyro"></label>
+    <label class="row sw"><span>Las estrellas laten con la música</span><input type="checkbox" data-k="react"></label>
+
+    <h3>Calidad</h3>
+    <div class="seg" data-k="quality"><button data-v="baja">Ahorro</button><button data-v="media">Media</button><button data-v="alta">Alta</button></div>
+
+    <h3>Tu música</h3>
+    <label class="row sw"><span>Guardar las canciones nuevas en la app</span><input type="checkbox" data-k="keepSongs"></label>
+    <ol id="songs"></ol>
+    <div class="btns"><button id="bAdd2" class="ghost">Añadir canciones</button><button id="bClear" class="ghost danger">Quitar todas</button></div>
+
+    <p class="foot">Toca la pantalla para ver u ocultar los controles. Mantén el dedo para ir a velocidad luz. Doble toque para volver a mirar al frente. Arrastra para girar la vista.</p>
+    <button id="bReset" class="link">Restablecer ajustes</button>
+  </div>
+</div>
+
+<div id="toast" class="off"></div>
+<div id="fatal">Este navegador no puede dibujar con WebGL. Prueba con Chrome o Safari actualizados.</div>
+<input id="file" type="file" accept="audio/*,.mp3,.m4a,.aac,.ogg,.opus,.wav,.flac" multiple hidden>
+
+<script>
+'use strict';
+/* =====================================================================
+   UNIVERSO: viaje entre estrellas a pantalla completa.
+   El teléfono es una ventana: el giroscopio orienta la cámara dentro de
+   una esfera de estrellas mientras la nave avanza. La música son los
+   archivos de audio del propio teléfono (no se sube nada a internet).
+   ===================================================================== */
+
+const $ = s => document.querySelector(s);
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const ease = (dt, rate) => 1 - Math.exp(-dt * rate);   // suavizado independiente de los fps
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+};
+
+const DEF = { speed: 1, streak: 1, count: 9000, fov: 62, nebula: 0.6, palette: 'hiper', heading: 'fixed',
+              gyro: true, react: true, quality: 'alta', shuffle: false, keepSongs: true };
+const cfg = Object.assign({}, DEF, store.get('universo.cfg', {}));
+const saveCfg = () => store.set('universo.cfg', cfg);
+
+// c: colores de las estrellas (principal, segundo, acento); mix: cortes del reparto; neb: colores de la nebulosa
+const PALETTES = {
+  hiper:   { name: 'Hiperespacio', c: [[0.30, 0.62, 1.00], [0.80, 0.90, 1.00], [1.00, 0.56, 0.20]], mix: [0.74, 0.87],
+             neb: [[0.06, 0.20, 0.70], [0.30, 0.10, 0.55], [1.00, 0.45, 0.12]] },
+  blanco:  { name: 'Clásico', c: [[0.85, 0.91, 1.00], [1.00, 1.00, 1.00], [1.00, 0.84, 0.66]], mix: [0.55, 0.88],
+             neb: [[0.14, 0.16, 0.26], [0.12, 0.12, 0.18], [0.35, 0.28, 0.22]] },
+  nebula:  { name: 'Nebulosa', c: [[0.66, 0.38, 1.00], [1.00, 0.45, 0.82], [0.35, 0.80, 1.00]], mix: [0.55, 0.80],
+             neb: [[0.35, 0.06, 0.60], [0.70, 0.10, 0.45], [0.10, 0.35, 0.85]] },
+  aurora:  { name: 'Aurora', c: [[0.25, 1.00, 0.72], [0.30, 0.72, 1.00], [0.80, 0.42, 1.00]], mix: [0.50, 0.80],
+             neb: [[0.02, 0.35, 0.28], [0.05, 0.18, 0.55], [0.35, 0.12, 0.55]] },
+  fuego:   { name: 'Fuego', c: [[1.00, 0.55, 0.16], [1.00, 0.86, 0.52], [1.00, 0.25, 0.14]], mix: [0.60, 0.85],
+             neb: [[0.50, 0.12, 0.02], [0.40, 0.03, 0.06], [0.70, 0.38, 0.05]] },
+  arcoiris:{ name: 'Arcoíris', rainbow: true, c: [[1, 1, 1], [1, 1, 1], [1, 1, 1]], mix: [0.5, 0.8],
+             neb: [[0.10, 0.18, 0.60], [0.50, 0.08, 0.45], [0.05, 0.45, 0.35]] }
+};
+if (!PALETTES[cfg.palette]) cfg.palette = DEF.palette;
+
+/* ------------------------------------------------------------------ cuaterniones */
+// [x, y, z, w]; mundo con Y hacia arriba, la cámara mira hacia -Z
+function qmul(a, b) {
+  const [ax, ay, az, aw] = a, [bx, by, bz, bw] = b;
+  return [aw * bx + ax * bw + ay * bz - az * by, aw * by - ax * bz + ay * bw + az * bx,
+          aw * bz + ax * by - ay * bx + az * bw, aw * bw - ax * bx - ay * by - az * bz];
+}
+function qaxis(ax, ang) { const s = Math.sin(ang / 2); return [ax[0] * s, ax[1] * s, ax[2] * s, Math.cos(ang / 2)]; }
+function qnorm(q) { const l = Math.hypot(q[0], q[1], q[2], q[3]) || 1; return [q[0] / l, q[1] / l, q[2] / l, q[3] / l]; }
+function qrot(q, v) {
+  const [x, y, z, w] = q, [vx, vy, vz] = v;
+  const tx = 2 * (y * vz - z * vy), ty = 2 * (z * vx - x * vz), tz = 2 * (x * vy - y * vx);
+  return [vx + w * tx + (y * tz - z * ty), vy + w * ty + (z * tx - x * tz), vz + w * tz + (x * ty - y * tx)];
+}
+function qslerp(a, b, t) {
+  let d = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
+  if (d < 0) { d = -d; b = [-b[0], -b[1], -b[2], -b[3]]; }
+  if (d > 0.9995) return qnorm(a.map((x, i) => x + (b[i] - x) * t));
+  const th = Math.acos(d), s = Math.sin(th), wa = Math.sin((1 - t) * th) / s, wb = Math.sin(t * th) / s;
+  return a.map((x, i) => x * wa + b[i] * wb);
+}
+// matriz 3x3 por columnas (lo que espera WebGL): cámara -> mundo
+function qmat3(q) {
+  const [x, y, z, w] = q, x2 = x + x, y2 = y + y, z2 = z + z;
+  const xx = x * x2, xy = x * y2, xz = x * z2, yy = y * y2, yz = y * z2, zz = z * z2, wx = w * x2, wy = w * y2, wz = w * z2;
+  return new Float32Array([1 - (yy + zz), xy + wz, xz - wy, xy - wz, 1 - (xx + zz), yz + wx, xz + wy, yz - wx, 1 - (xx + yy)]);
+}
+const transpose3 = m => new Float32Array([m[0], m[3], m[6], m[1], m[4], m[7], m[2], m[5], m[8]]);
+const yawOf = v => Math.atan2(-v[0], -v[2]);   // ángulo horizontal de una dirección (0 = -Z)
+
+// deviceorientation (alfa, beta, gama en grados) -> orientación de la cámara.
+// Es la convención de three.js: la cámara mira por la parte de atrás del teléfono.
+const D2R = Math.PI / 180, Q_BACK = [-Math.SQRT1_2, 0, 0, Math.SQRT1_2];
+function sensorQuat(alpha, beta, gamma, screenDeg) {
+  const x = beta * D2R / 2, y = alpha * D2R / 2, z = -gamma * D2R / 2;
+  const c1 = Math.cos(x), c2 = Math.cos(y), c3 = Math.cos(z), s1 = Math.sin(x), s2 = Math.sin(y), s3 = Math.sin(z);
+  let q = [s1 * c2 * c3 + c1 * s2 * s3, c1 * s2 * c3 - s1 * c2 * s3, c1 * c2 * s3 - s1 * s2 * c3, c1 * c2 * c3 + s1 * s2 * s3];
+  q = qmul(q, Q_BACK);
+  return qmul(q, qaxis([0, 0, 1], -screenDeg * D2R));
+}
+function screenAngle() {
+  const o = screen.orientation;
+  if (o && typeof o.angle === 'number') return o.angle;
+  return typeof window.orientation === 'number' ? window.orientation : 0;
+}
+
+/* ------------------------------------------------------------------ shaders */
+const HP = 'precision highp float;\n';
+const FP = '#ifdef GL_FRAGMENT_PRECISION_HIGH\nprecision highp float;\n#else\nprecision mediump float;\n#endif\n';
+
+// Cada estrella es un rectángulo en pantalla que va de donde estaba (cola) a donde está (cabeza).
+// Las estrellas viven en una caja que se repite alrededor de la cámara: el viaje nunca termina.
+const STAR_VS = HP + `
+attribute vec3 aBase; attribute vec2 aCorner; attribute vec2 aRand;
+uniform vec3 uOff; uniform float uBox; uniform mat3 uView; uniform mat4 uProj;
+uniform vec3 uVel; uniform float uStreak; uniform vec2 uRes; uniform float uFocal;
+uniform float uRad; uniform float uMinPx; uniform float uBright; uniform float uNear; uniform vec3 uT; uniform float uSqueeze;
+uniform vec3 uC0; uniform vec3 uC1; uniform vec3 uC2; uniform vec2 uMix; uniform float uRainbow;
+varying vec3 vCol; varying vec3 vGeo; varying float vR;
+// adelante y a lo lejos las estrellas se juntan hacia el eje del viaje: el cúmulo denso del centro
+vec3 tunnel(vec3 q){ float a = dot(q, uT); float s = mix(1.0, uSqueeze, smoothstep(uBox * 0.06, uBox * 0.42, a)); return uT * a + (q - uT * a) * s; }
+vec3 hue(float h){ return clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0); }
+void main(){
+  vec3 p = (fract(aBase - uOff + 0.5) - 0.5) * uBox;
+  float dist = length(p);
+  float fade = (1.0 - smoothstep(uBox * 0.27, uBox * 0.47, dist)) * (uNear > 0.0 ? smoothstep(uNear * 0.6, uNear, dist) : 1.0);
+  vec3 h = uView * tunnel(p);
+  vec3 t = uView * tunnel(p + uVel * uStreak);
+  const float NZ = -0.06;
+  if (fade <= 0.0 || (h.z > NZ && t.z > NZ)) { gl_Position = vec4(0.0, 0.0, 2.0, 1.0); vCol = vec3(0.0); vGeo = vec3(0.0); vR = 1.0; return; }
+  if (h.z > NZ) h = mix(t, h, (NZ - t.z) / (h.z - t.z));
+  if (t.z > NZ) t = mix(h, t, (NZ - h.z) / (t.z - h.z));
+  vec4 ch = uProj * vec4(h, 1.0), ct = uProj * vec4(t, 1.0);
+  vec2 sh = ch.xy / ch.w * 0.5 * uRes, st = ct.xy / ct.w * 0.5 * uRes;
+  float depth = -h.z;
+  float sz = 0.35 + 1.65 * aRand.y * aRand.y * aRand.y;
+  float r = uRad * sz * uFocal / depth, k = 1.0;
+  if (r < uMinPx) { k = sqrt(r / uMinPx); r = uMinPx; }
+  r = min(r, uMinPx * 9.0);
+  vec2 d = sh - st; float L = length(d);
+  vec2 dir = L > 0.001 ? d / L : vec2(1.0, 0.0), nrm = vec2(-dir.y, dir.x);
+  float E = r * 3.0;
+  float along = aCorner.y > 0.5 ? L + E : -E;
+  gl_Position = vec4((st + dir * along + nrm * aCorner.x * E) / (0.5 * uRes), 0.0, 1.0);
+  vGeo = vec3(along, aCorner.x * E, L); vR = r;
+  float s = aRand.x; vec3 c;
+  if (uRainbow > 0.5) c = mix(hue(fract(s * 7.13)), vec3(1.0), 0.2);
+  else if (s < uMix.x) c = uC0; else if (s < uMix.y) c = uC1; else c = uC2;
+  c *= 0.7 + 0.6 * fract(s * 91.7);
+  vCol = c * fade * k * uBright * smoothstep(0.15, 1.6, depth) * mix(1.0, 0.55, smoothstep(40.0, 900.0, L));
+}`;
+const STAR_FS = FP + `
+varying vec3 vCol; varying vec3 vGeo; varying float vR;
+void main(){
+  float x = clamp(vGeo.x, 0.0, vGeo.z);
+  float r = length(vec2(vGeo.x - x, vGeo.y)) / vR;
+  float t = vGeo.z > 0.0 ? x / vGeo.z : 1.0;
+  float g = 0.05 + 0.95 * t * t;                       // la cola se apaga, la cabeza brilla
+  float core = 1.0 - smoothstep(0.2, 1.0, r);
+  float halo = exp(-r * r * 0.9) * 0.35;
+  vec3 col = vCol * (core + halo) * g + vec3(core * core * g * 0.55) * dot(vCol, vec3(0.333));
+  gl_FragColor = vec4(col, 1.0);
+}`;
+
+// Estrellas lejanas: puntos fijos en el infinito; solo giran con la vista.
+const FAR_VS = HP + `
+attribute vec3 aDir; attribute vec3 aInfo;
+uniform mat3 uView; uniform mat4 uProj; uniform float uPx; uniform float uTime; uniform float uBright;
+uniform vec3 uC0; uniform vec3 uC2;
+varying vec3 vCol;
+void main(){
+  gl_Position = uProj * vec4(uView * aDir, 1.0);
+  gl_PointSize = aInfo.x * uPx;
+  float tw = 0.72 + 0.28 * sin(uTime * (0.6 + aInfo.z * 2.4) + aInfo.z * 57.0);
+  vCol = mix(vec3(0.86, 0.9, 1.0), aInfo.z < 0.7 ? uC0 : uC2, 0.35) * aInfo.y * tw * uBright;
+}`;
+const FAR_FS = FP + `
+varying vec3 vCol;
+void main(){ float d = length(gl_PointCoord - 0.5) * 2.0; float a = 1.0 - smoothstep(0.0, 1.0, d); gl_FragColor = vec4(vCol * a * a, 1.0); }`;
+
+const TRI_VS = HP + `attribute vec2 aPos; varying vec2 vNdc; void main(){ vNdc = aPos; gl_Position = vec4(aPos, 0.0, 1.0); }`;
+
+// Cielo: la nebulosa horneada en un cubemap + un resplandor hacia el rumbo de la nave.
+const SKY_FS = FP + `
+varying vec2 vNdc;
+uniform samplerCube uSky; uniform mat3 uCam; uniform vec2 uTan; uniform float uNeb; uniform vec3 uT; uniform vec3 uGlow;
+float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+void main(){
+  vec3 d = normalize(uCam * vec3(vNdc * uTan, -1.0));
+  vec3 c = textureCube(uSky, d).rgb * uNeb;
+  float f = max(dot(d, uT), 0.0);
+  c += uGlow * (pow(f, 120.0) * 0.12 + pow(f, 14.0) * 0.012) * uNeb;
+  float m = max(c.r, max(c.g, c.b));
+  c += (hash(gl_FragCoord.xy) - 0.5) / 255.0 * step(1.5 / 255.0, m);   // tramado: sin escalones, negro puro sigue apagado
+  gl_FragColor = vec4(max(c, 0.0), 1.0);
+}`;
+
+const BAKE_FS = HP + `
+varying vec2 vNdc;
+uniform vec3 uU; uniform vec3 uV; uniform vec3 uN; uniform vec3 uN0; uniform vec3 uN1; uniform vec3 uN2; uniform float uSeed;
+float hash(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+float noise(vec3 x){
+  vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(hash(i), hash(i + vec3(1,0,0)), f.x), mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+             mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x), mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
+}
+float fbm(vec3 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 6; i++){ s += a * noise(p); p = p * 2.03 + vec3(1.7, 9.2, 3.1); a *= 0.5; } return s; }
+void main(){
+  vec3 d = normalize(vNdc.x * uU + vNdc.y * uV + uN);
+  vec3 p = d * 1.7 + uSeed;
+  float n = fbm(p), n2 = fbm(p * 2.3 + 7.1), lanes = fbm(p * 3.4 - 3.3);
+  float band = exp(-pow(dot(d, normalize(vec3(0.35, 0.85, 0.4))) * 2.3, 2.0));
+  float c1 = smoothstep(0.40, 0.85, n), c2 = smoothstep(0.48, 0.92, n2);
+  vec3 col = uN0 * c1 * (0.30 + 1.0 * band) + uN1 * c1 * c2 * 1.1 + uN2 * pow(c2, 4.0) * band * 0.8;
+  col *= 0.45 + 0.55 * smoothstep(0.30, 0.70, lanes);
+  gl_FragColor = vec4(col * 0.42, 1.0);
+}`;
+
+/* ------------------------------------------------------------------ WebGL */
+const canvas = $('#c');
+const GLOPT = { alpha: false, antialias: false, depth: false, stencil: false, premultipliedAlpha: false, powerPreference: 'high-performance' };
+const gl = canvas.getContext('webgl', GLOPT) || canvas.getContext('experimental-webgl', GLOPT);
+const R = {};                          // recursos de GL (se rehacen si se pierde el contexto)
+const BOX = 120, BASE_SPEED = 22, WRAP = BOX * 4;
+// dos capas con las mismas estrellas: cerca (estelas largas) y a lo lejos (el cúmulo del centro, más lento)
+const LAYERS = [{ box: BOX, near: 0, squeeze: 1, rad: 0.06, bright: 1, seed: [0, 0, 0] },
+                { box: BOX * 4, near: BOX * 0.4, squeeze: 0.16, rad: 0.15, bright: 1.3, seed: [0.37, 0.61, 0.13] }];
+
+function compile(vs, fs, attrs) {
+  const p = gl.createProgram();
+  for (const [src, type] of [[vs, gl.VERTEX_SHADER], [fs, gl.FRAGMENT_SHADER]]) {
+    const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+    gl.attachShader(p, s);
+  }
+  attrs.forEach((a, i) => gl.bindAttribLocation(p, i, a));
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  const u = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+  for (let i = 0; i < n; i++) { const info = gl.getActiveUniform(p, i); u[info.name] = gl.getUniformLocation(p, info.name); }
+  return { p, u };
+}
+
+function buildStars(n) {
+  n = clamp(Math.round(n), 500, 16000);          // índices de 16 bits: 4 vértices por estrella
+  const data = new Float32Array(n * 4 * 7), idx = new Uint16Array(n * 6);
+  const corners = [[-1, 0], [1, 0], [-1, 1], [1, 1]];
+  for (let i = 0, o = 0; i < n; i++) {
+    const bx = Math.random(), by = Math.random(), bz = Math.random(), cs = Math.random(), ss = Math.random();
+    for (const [cx, cy] of corners) { data[o++] = bx; data[o++] = by; data[o++] = bz; data[o++] = cx; data[o++] = cy; data[o++] = cs; data[o++] = ss; }
+    const b = i * 4; idx.set([b, b + 1, b + 2, b + 2, b + 1, b + 3], i * 6);
+  }
+  R.starN = n;
+  gl.bindBuffer(gl.ARRAY_BUFFER, R.starBuf); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, R.starIdx); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);
+}
+
+function buildFar(n) {
+  const data = new Float32Array(n * 6);
+  const band = [0.35, 0.85, 0.4], bl = Math.hypot(...band);
+  for (let i = 0, o = 0; i < n; i++) {
+    let x, y, z, l;
+    do { x = Math.random() * 2 - 1; y = Math.random() * 2 - 1; z = Math.random() * 2 - 1; l = x * x + y * y + z * z; } while (l > 1 || l < 1e-4);
+    l = Math.sqrt(l); x /= l; y /= l; z /= l;
+    // la mitad se acerca a la franja de la "vía láctea" para que el cielo tenga forma
+    if (i % 2) { const dp = (x * band[0] + y * band[1] + z * band[2]) / bl, k = 0.8 * dp;
+      x -= band[0] / bl * k; y -= band[1] / bl * k; z -= band[2] / bl * k; l = Math.hypot(x, y, z); x /= l; y /= l; z /= l; }
+    const r = Math.random();
+    data[o++] = x; data[o++] = y; data[o++] = z;
+    data[o++] = 1.4 + 2.6 * r * r * r;             // tamaño en px
+    data[o++] = 0.10 + 0.75 * Math.pow(Math.random(), 3);  // brillo
+    data[o++] = Math.random();                     // color y titileo
+  }
+  R.farN = n;
+  gl.bindBuffer(gl.ARRAY_BUFFER, R.farBuf); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+}
+
+// hornea la nebulosa en las 6 caras de un cubemap (una sola vez por paleta)
+const FACES = [
+  [[0, 0, -1], [0, -1, 0], [1, 0, 0]], [[0, 0, 1], [0, -1, 0], [-1, 0, 0]],
+  [[1, 0, 0], [0, 0, 1], [0, 1, 0]],   [[1, 0, 0], [0, 0, -1], [0, -1, 0]],
+  [[1, 0, 0], [0, -1, 0], [0, 0, 1]],  [[-1, 0, 0], [0, -1, 0], [0, 0, -1]]
+];
+function bakeSky() {
+  const size = cfg.quality === 'alta' ? 512 : 256, pal = PALETTES[cfg.palette];
+  if (!R.skyTex) R.skyTex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_CUBE_MAP, R.skyTex);
+  for (let i = 0; i < 6; i++) gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, gl.RGBA, size, size, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  const fb = gl.createFramebuffer(), P = R.bake;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+  gl.useProgram(P.p); gl.disable(gl.BLEND); gl.viewport(0, 0, size, size);
+  gl.uniform3fv(P.u.uN0, pal.neb[0]); gl.uniform3fv(P.u.uN1, pal.neb[1]); gl.uniform3fv(P.u.uN2, pal.neb[2]);
+  gl.uniform1f(P.u.uSeed, 3.7);
+  bindTri();
+  let ok = true;
+  for (let i = 0; i < 6; i++) {
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_CUBE_MAP_POSITIVE_X + i, R.skyTex, 0);
+    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) { ok = false; break; }
+    gl.uniform3fv(P.u.uU, FACES[i][0]); gl.uniform3fv(P.u.uV, FACES[i][1]); gl.uniform3fv(P.u.uN, FACES[i][2]);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.deleteFramebuffer(fb);
+  R.skyOk = ok;
+}
+
+function bindTri() {
+  gl.bindBuffer(gl.ARRAY_BUFFER, R.triBuf);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  gl.disableVertexAttribArray(1); gl.disableVertexAttribArray(2);
+}
+
+function initGL() {
+  R.star = compile(STAR_VS, STAR_FS, ['aBase', 'aCorner', 'aRand']);
+  R.far = compile(FAR_VS, FAR_FS, ['aDir', 'aInfo']);
+  R.sky = compile(TRI_VS, SKY_FS, ['aPos']);
+  R.bake = compile(TRI_VS, BAKE_FS, ['aPos']);
+  R.starBuf = gl.createBuffer(); R.starIdx = gl.createBuffer(); R.farBuf = gl.createBuffer(); R.triBuf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, R.triBuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  R.skyTex = null;
+  buildStars(cfg.count); buildFar(2200); bakeSky();
+}
+
+/* ------------------------------------------------------------------ estado del viaje */
+const ori = { sensorQ: null, events: 0, yawOff: 0, manYaw: 0, manPitch: 0, q: [0, 0, 0, 1], needCenter: true };
+const mot = { T: [0, 0, -1], pos: [0, 0, 0], speed: 0, turbo: 0 };
+const A = { level: 0, slow: 0, kick: 0 };
+let started = false, turboOn = false, scaleMul = 1, curDpr = 1, fovNow = cfg.fov;
+const perf = { acc: 0, n: 0 };
+const gyroActive = () => started && cfg.gyro && !!ori.sensorQ;
+
+function onOrient(e) {
+  if (e.alpha == null && e.beta == null && e.gamma == null) return;
+  ori.events++;
+  ori.sensorQ = sensorQuat(e.alpha || 0, e.beta || 0, e.gamma || 0, screenAngle());
+}
+
+// girar la vista para que el frente quede en el rumbo de la nave (solo en horizontal)
+function recenter() {
+  const ty = yawOf(mot.T);
+  if (gyroActive()) {
+    const f = qrot(ori.sensorQ, [0, 0, -1]);
+    ori.yawOff = ty - yawOf(f); ori.manYaw = 0;
+  } else {
+    ori.manYaw = ty; ori.manPitch = Math.asin(clamp(mot.T[1], -1, 1));
+  }
+  ori.needCenter = false;
+}
+
+function targetQuat() {
+  if (gyroActive()) {
+    if (ori.needCenter) recenter();
+    return qmul(qaxis([0, 1, 0], ori.yawOff + ori.manYaw), ori.sensorQ);
+  }
+  return qmul(qaxis([0, 1, 0], ori.manYaw), qaxis([1, 0, 0], ori.manPitch));
+}
+
+function updateAudio(dt) {
+  let bass = 0;
+  if (player.an && !audio.paused) {
+    player.an.getByteFrequencyData(player.fd);
+    for (let i = 1; i <= 6; i++) bass += player.fd[i];      // ~40-260 Hz
+    bass /= 6 * 255;
+  }
+  A.level += (bass - A.level) * ease(dt, 10);
+  A.slow += (bass - A.slow) * ease(dt, 0.8);
+  A.kick = Math.max(Math.max(0, bass - A.slow * 1.05) * 2.8, A.kick * Math.exp(-dt * 5));
+}
+
+function update(dt) {
+  updateAudio(dt);
+  ori.q = qslerp(ori.q, targetQuat(), ease(dt, gyroActive() ? 28 : 14));
+  if (!gyroActive() && !started) ori.manYaw += dt * 0.02;       // en la portada la vista deriva sola
+
+  const fwd = qrot(ori.q, [0, 0, -1]);
+  if (cfg.heading === 'follow' && started) {
+    const k = ease(dt, 0.9), T = mot.T;
+    const n = [T[0] + (fwd[0] - T[0]) * k, T[1] + (fwd[1] - T[1]) * k, T[2] + (fwd[2] - T[2]) * k], l = Math.hypot(...n) || 1;
+    mot.T = [n[0] / l, n[1] / l, n[2] / l];
+  }
+  mot.turbo += ((turboOn ? 1 : 0) - mot.turbo) * ease(dt, turboOn ? 1.4 : 2.2);
+  const react = cfg.react ? 1 : 0;
+  const target = started ? BASE_SPEED * cfg.speed * (1 + 4.5 * mot.turbo) * (1 + react * (A.level * 0.35 + A.kick * 1.6)) : BASE_SPEED * 0.12;
+  mot.speed += (target - mot.speed) * ease(dt, started ? 2.2 : 1);
+  for (let i = 0; i < 3; i++) { mot.pos[i] = (mot.pos[i] + mot.T[i] * mot.speed * dt) % WRAP; if (mot.pos[i] < 0) mot.pos[i] += WRAP; }
+  fovNow = cfg.fov + mot.turbo * 12 + react * A.kick * 4;
+}
+
+function resize() {
+  const cap = cfg.quality === 'alta' ? 2 : cfg.quality === 'media' ? 1.5 : 1;
+  curDpr = Math.min(window.devicePixelRatio || 1, cap) * scaleMul;
+  const w = Math.max(1, Math.round(canvas.clientWidth * curDpr)), h = Math.max(1, Math.round(canvas.clientHeight * curDpr));
+  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+}
+
+// el campo de visión se aplica al lado corto de la pantalla (vertical u horizontal da igual)
+function projection(fov, aspect) {
+  const ts = Math.tan(fov * D2R / 2), tx = aspect < 1 ? ts : ts * aspect, ty = aspect < 1 ? ts / aspect : ts;
+  const n = 0.05, f = 2000;
+  return { tx, ty, m: new Float32Array([1 / tx, 0, 0, 0, 0, 1 / ty, 0, 0, 0, 0, (f + n) / (n - f), -1, 0, 0, 2 * f * n / (n - f), 0]) };
+}
+
+function render(time) {
+  const W = canvas.width, H = canvas.height, pal = PALETTES[cfg.palette];
+  gl.viewport(0, 0, W, H);
+  const P = projection(fovNow, W / H), cam = qmat3(ori.q), view = transpose3(cam);
+  const bright = 1 + (cfg.react ? A.kick * 0.7 : 0);
+
+  if (cfg.nebula > 0.01 && R.skyOk) {
+    const S = R.sky; gl.useProgram(S.p); gl.disable(gl.BLEND); bindTri();
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_CUBE_MAP, R.skyTex); gl.uniform1i(S.u.uSky, 0);
+    gl.uniformMatrix3fv(S.u.uCam, false, cam); gl.uniform2f(S.u.uTan, P.tx, P.ty);
+    gl.uniform1f(S.u.uNeb, cfg.nebula * (1 + (cfg.react ? A.kick * 0.25 : 0)));
+    gl.uniform3fv(S.u.uT, mot.T); gl.uniform3fv(S.u.uGlow, pal.c[0]);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  } else { gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT); }
+
+  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);      // luz que se suma: brillo sin fondo gris
+
+  const F = R.far; gl.useProgram(F.p);
+  gl.bindBuffer(gl.ARRAY_BUFFER, R.farBuf);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 24, 0);
+  gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 24, 12);
+  gl.disableVertexAttribArray(2);
+  gl.uniformMatrix3fv(F.u.uView, false, view); gl.uniformMatrix4fv(F.u.uProj, false, P.m);
+  gl.uniform1f(F.u.uPx, Math.max(1, curDpr * 0.8)); gl.uniform1f(F.u.uTime, time); gl.uniform1f(F.u.uBright, bright);
+  gl.uniform3fv(F.u.uC0, pal.c[0]); gl.uniform3fv(F.u.uC2, pal.c[2]);
+  gl.drawArrays(gl.POINTS, 0, R.farN);
+
+  const S = R.star; gl.useProgram(S.p);
+  gl.bindBuffer(gl.ARRAY_BUFFER, R.starBuf); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, R.starIdx);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 28, 0);
+  gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 28, 12);
+  gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 28, 20);
+  gl.uniformMatrix3fv(S.u.uView, false, view); gl.uniformMatrix4fv(S.u.uProj, false, P.m);
+  gl.uniform3f(S.u.uVel, mot.T[0] * mot.speed, mot.T[1] * mot.speed, mot.T[2] * mot.speed);
+  gl.uniform1f(S.u.uStreak, 0.12 * cfg.streak);
+  gl.uniform2f(S.u.uRes, W, H); gl.uniform1f(S.u.uFocal, (H / 2) / P.ty);
+  gl.uniform1f(S.u.uMinPx, Math.max(0.9, curDpr * 0.75)); gl.uniform3fv(S.u.uT, mot.T);
+  gl.uniform3fv(S.u.uC0, pal.c[0]); gl.uniform3fv(S.u.uC1, pal.c[1]); gl.uniform3fv(S.u.uC2, pal.c[2]);
+  gl.uniform2fv(S.u.uMix, pal.mix); gl.uniform1f(S.u.uRainbow, pal.rainbow ? 1 : 0);
+  for (const Ly of LAYERS) {
+    gl.uniform3f(S.u.uOff, mot.pos[0] / Ly.box + Ly.seed[0], mot.pos[1] / Ly.box + Ly.seed[1], mot.pos[2] / Ly.box + Ly.seed[2]);
+    gl.uniform1f(S.u.uBox, Ly.box); gl.uniform1f(S.u.uNear, Ly.near); gl.uniform1f(S.u.uSqueeze, Ly.squeeze); gl.uniform1f(S.u.uRad, Ly.rad); gl.uniform1f(S.u.uBright, bright * Ly.bright);
+    gl.drawElements(gl.TRIANGLES, R.starN * 6, gl.UNSIGNED_SHORT, 0);
+  }
+  gl.disable(gl.BLEND);
+}
+
+let last = performance.now(), glLost = false;
+function frame(now) {
+  requestAnimationFrame(frame);
+  const raw = (now - last) / 1000, dt = Math.min(0.05, Math.max(0, raw)); last = now;
+  if (glLost) return;
+  // si el teléfono no da abasto, baja la resolución poco a poco (nunca la sube sola)
+  if (started && raw < 0.2) { perf.acc += raw; perf.n++;
+    if (perf.acc > 2.5) { if (perf.acc / perf.n > 1 / 40 && scaleMul > 0.55) scaleMul -= 0.15; perf.acc = 0; perf.n = 0; } }
+  resize(); update(dt); render(now / 1000);
+}
+
+/* ------------------------------------------------------------------ música */
+const audio = new Audio();
+audio.preload = 'auto';
+const player = { list: [], idx: -1, url: null, ctx: null, an: null, fd: null, errors: 0 };
+
+const DB = {
+  db: null,
+  open() {
+    if (this.db) return Promise.resolve(this.db);
+    return new Promise((res, rej) => {
+      const r = indexedDB.open('universo', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('songs', { keyPath: 'id', autoIncrement: true });
+      r.onsuccess = () => { this.db = r.result; res(this.db); };
+      r.onerror = () => rej(r.error);
+    });
+  },
+  async run(mode, fn) {
+    const db = await this.open();
+    return new Promise((res, rej) => {
+      const t = db.transaction('songs', mode), req = fn(t.objectStore('songs'));
+      t.oncomplete = () => res(req && req.result); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+    });
+  },
+  add(rec) { return this.run('readwrite', s => s.add(rec)); },
+  all() { return this.run('readonly', s => s.getAll()); },
+  del(id) { return this.run('readwrite', s => s.delete(id)); },
+  clear() { return this.run('readwrite', s => s.clear()); }
+};
+
+const cleanName = n => n.replace(/\.[^.]+$/, '').replace(/[_]+/g, ' ').trim() || 'Canción';
+const isAudio = f => (f.type && f.type.startsWith('audio/')) || /\.(mp3|m4a|aac|ogg|oga|opus|wav|flac|weba)$/i.test(f.name);
+
+function ensureAudioGraph() {
+  // iPhone: que suene aunque el interruptor de silencio esté puesto (como un reproductor de música)
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+  if (player.ctx) { if (player.ctx.state === 'suspended') player.ctx.resume().catch(() => {}); return; }
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AC(), src = ctx.createMediaElementSource(audio), an = ctx.createAnalyser();
+    an.fftSize = 1024; an.smoothingTimeConstant = 0.5;
+    src.connect(an); an.connect(ctx.destination);
+    Object.assign(player, { ctx, an, fd: new Uint8Array(an.frequencyBinCount) });
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  } catch (e) { /* sin análisis: la música suena igual, solo no hace latir las estrellas */ }
+}
+
+function playIdx(i) {
+  const L = player.list;
+  if (!L.length) { setSongUI(); return; }
+  player.idx = ((i % L.length) + L.length) % L.length;
+  const it = L[player.idx];
+  if (player.url) URL.revokeObjectURL(player.url);
+  player.url = URL.createObjectURL(it.blob);
+  audio.src = player.url;
+  const p = audio.play(); if (p && p.catch) p.catch(() => {});
+  setSongUI(); setMediaMeta(it);
+}
+function nextIdx(dir) {
+  const n = player.list.length;
+  if (cfg.shuffle && n > 2 && dir > 0) { let j; do { j = Math.floor(Math.random() * n); } while (j === player.idx); return j; }
+  return player.idx + dir;
+}
+function togglePlay() {
+  ensureAudioGraph();
+  if (!player.list.length) { pickFiles(); return; }
+  if (player.idx < 0) { playIdx(cfg.shuffle ? Math.floor(Math.random() * player.list.length) : 0); return; }
+  if (audio.paused) { const p = audio.play(); if (p && p.catch) p.catch(() => {}); } else audio.pause();
+}
+
+audio.addEventListener('ended', () => playIdx(nextIdx(1)));
+audio.addEventListener('playing', () => { player.errors = 0; setPlayIcon(); });
+audio.addEventListener('pause', setPlayIcon);
+audio.addEventListener('timeupdate', updateTime);
+audio.addEventListener('error', () => {
+  if (!audio.src || !player.list.length) return;
+  const it = player.list[player.idx];
+  toast('No se pudo reproducir ' + (it ? it.name : 'la canción'));
+  if (++player.errors < player.list.length) setTimeout(() => playIdx(nextIdx(1)), 900);
+});
+
+function setMediaMeta(it) {
+  if (!('mediaSession' in navigator)) return;
+  try {
+    navigator.mediaSession.metadata = new MediaMetadata({ title: it.name, artist: 'Universo',
+      artwork: [{ src: 'icon-512.png', sizes: '512x512', type: 'image/png' }] });
+  } catch (e) {}
+}
+if ('mediaSession' in navigator) {
+  const ms = navigator.mediaSession, h = (a, f) => { try { ms.setActionHandler(a, f); } catch (e) {} };
+  h('play', () => audio.play()); h('pause', () => audio.pause());
+  h('previoustrack', () => playIdx(player.idx - 1)); h('nexttrack', () => playIdx(nextIdx(1)));
+}
+
+async function addFiles(files) {
+  const fresh = files.filter(isAudio);
+  if (!fresh.length) { if (files.length) toast('Esos archivos no son de audio'); return; }
+  const first = player.list.length;
+  let saved = cfg.keepSongs;
+  for (const f of fresh) {
+    const it = { id: null, name: cleanName(f.name), blob: f };
+    if (saved) {
+      try { it.id = await DB.add({ name: it.name, blob: f, added: Date.now() }); }
+      catch (e) { saved = false; toast('No hay espacio para guardarlas: sonarán solo esta vez'); }
+    }
+    player.list.push(it);
+  }
+  if (saved && navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  renderSongs(); setIntroNote();
+  toast(fresh.length === 1 ? 'Añadida: ' + fresh[0].name : fresh.length + ' canciones añadidas');
+  if (started && (player.idx < 0 || audio.paused)) { ensureAudioGraph(); playIdx(first); }
+}
+
+async function removeSong(i) {
+  const it = player.list[i]; if (!it) return;
+  if (it.id != null) { try { await DB.del(it.id); } catch (e) {} }
+  const wasCurrent = i === player.idx;
+  player.list.splice(i, 1);
+  if (i < player.idx) player.idx--;
+  if (wasCurrent) {
+    if (player.list.length && !audio.paused) playIdx(player.idx);
+    else { audio.pause(); audio.removeAttribute('src'); audio.load(); player.idx = player.list.length ? Math.min(player.idx, player.list.length - 1) : -1; }
+  }
+  renderSongs(); setSongUI(); setIntroNote();
+}
+
+async function clearSongs() {
+  if (!player.list.length) return;
+  if (!confirm('¿Quitar todas las canciones de la app? Los archivos de tu teléfono no se tocan.')) return;
+  try { await DB.clear(); } catch (e) {}
+  audio.pause(); audio.removeAttribute('src'); audio.load();
+  player.list = []; player.idx = -1;
+  renderSongs(); setSongUI(); setIntroNote();
+}
+
+/* ------------------------------------------------------------------ interfaz */
+const hud = $('#hud'), sheet = $('#sheet'), intro = $('#intro'), fileIn = $('#file');
+let hudTimer = 0, toastTimer = 0;
+
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.remove('off');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.add('off'), 2400);
+}
+function showHud() {
+  if (!started) return;
+  hud.classList.remove('off'); clearTimeout(hudTimer);
+  hudTimer = setTimeout(() => { if (sheet.classList.contains('off')) hud.classList.add('off'); }, 4500);
+}
+function hideHud() { clearTimeout(hudTimer); hud.classList.add('off'); }
+const openSheet = () => { syncSettings(); renderSongs(); sheet.classList.remove('off'); clearTimeout(hudTimer); };
+const closeSheet = () => { sheet.classList.add('off'); showHud(); };
+
+function fmt(s) { if (!isFinite(s)) return '0:00'; s = Math.floor(s); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+let seeking = false;
+function updateTime() {
+  const d = audio.duration;
+  $('#time').textContent = player.idx >= 0 && isFinite(d) ? fmt(audio.currentTime) + ' / ' + fmt(d) : '';
+  if (!seeking) $('#seek').value = isFinite(d) && d > 0 ? Math.round(audio.currentTime / d * 1000) : 0;
+}
+function setPlayIcon() {
+  $('#playIco').innerHTML = audio.paused ? '<path d="M8 5l12 7-12 7z" fill="currentColor"/>'
+    : '<path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor" stroke="none"/>';
+  $('#bPlay').setAttribute('aria-label', audio.paused ? 'Reproducir' : 'Pausar');
+}
+function setSongUI() {
+  const it = player.list[player.idx];
+  $('#song').textContent = it ? it.name : (player.list.length ? player.list.length + ' canciones listas' : 'Sin música: toca el botón de la nota');
+  $('#bShuf').classList.toggle('on', cfg.shuffle);
+  setPlayIcon(); updateTime();
+  document.querySelectorAll('#songs li').forEach((li, i) => li.classList.toggle('now', i === player.idx));
+}
+function setIntroNote() {
+  const n = player.list.length;
+  $('#introSongs').textContent = n ? (n === 1 ? '1 canción lista: sonará al despegar' : n + ' canciones listas: sonarán al despegar') : 'Sin música por ahora (puedes añadirla luego)';
+}
+function renderSongs() {
+  const ol = $('#songs'); ol.textContent = '';
+  player.list.forEach((it, i) => {
+    const li = document.createElement('li'); if (i === player.idx) li.className = 'now';
+    const sp = document.createElement('span'); sp.textContent = it.name;
+    sp.addEventListener('click', () => { ensureAudioGraph(); playIdx(i); });
+    const del = document.createElement('button'); del.className = 'ico'; del.setAttribute('aria-label', 'Quitar ' + it.name);
+    del.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+    del.addEventListener('click', () => removeSong(i));
+    li.append(sp, del); ol.append(li);
+  });
+}
+
+function pickFiles() { fileIn.click(); }
+fileIn.addEventListener('change', () => { const f = Array.from(fileIn.files || []); fileIn.value = ''; addFiles(f); });
+
+// ajustes <-> controles
+const FMT = { speed: v => v.toFixed(2) + '×', streak: v => v.toFixed(2) + '×', count: v => v.toLocaleString('es'), fov: v => v + '°',
+              nebula: v => v < 0.01 ? 'negro puro' : Math.round(v * 100) + ' %' };
+function syncSettings() {
+  document.querySelectorAll('[data-k]').forEach(el => {
+    const k = el.dataset.k;
+    if (el.type === 'range') el.value = cfg[k];
+    else if (el.type === 'checkbox') el.checked = !!cfg[k];
+    else el.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === cfg[k]));
+  });
+  document.querySelectorAll('[data-o]').forEach(o => { o.textContent = FMT[o.dataset.o](cfg[o.dataset.o]); });
+  document.querySelectorAll('#pal .chip').forEach(c => c.classList.toggle('on', c.dataset.v === cfg.palette));
+}
+let countTimer = 0;
+function applySetting(k, v) {
+  const prev = cfg[k]; cfg[k] = v; saveCfg(); syncSettings();
+  if (k === 'count') { clearTimeout(countTimer); countTimer = setTimeout(() => buildStars(cfg.count), 150); }
+  if (k === 'quality' && prev !== v) { scaleMul = 1; bakeSky(); }
+  if (k === 'palette') bakeSky();
+  if (k === 'gyro') { ori.needCenter = true; if (!v) { ori.manYaw = yawOf(qrot(ori.q, [0, 0, -1])); ori.manPitch = 0; } }
+  if (k === 'heading' && v === 'fixed') { /* conserva el rumbo actual */ }
+}
+document.querySelectorAll('[data-k]').forEach(el => {
+  const k = el.dataset.k;
+  if (el.type === 'range') el.addEventListener('input', () => applySetting(k, parseFloat(el.value)));
+  else if (el.type === 'checkbox') el.addEventListener('change', () => applySetting(k, el.checked));
+  else el.querySelectorAll('button').forEach(b => b.addEventListener('click', () => applySetting(k, b.dataset.v)));
+});
+for (const [key, p] of Object.entries(PALETTES)) {
+  const b = document.createElement('button'); b.className = 'chip'; b.dataset.v = key;
+  const col = c => `rgb(${c.map(x => Math.round(x * 255)).join(',')})`;
+  const grad = p.rainbow ? 'linear-gradient(90deg,#f55,#fd5,#5f8,#5cf,#a6f)' : `linear-gradient(90deg,${col(p.c[0])},${col(p.c[1])},${col(p.c[2])})`;
+  b.innerHTML = `<i style="background:${grad}"></i>`; b.append(p.name);
+  b.addEventListener('click', () => applySetting('palette', key));
+  $('#pal').append(b);
+}
+
+// pantalla completa, pantalla siempre encendida y orientación fija
+const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+const standalone = () => matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone;
+function lockOrientation() {
+  try { const o = screen.orientation; if (o && o.lock) o.lock(o.type).catch(() => {}); } catch (e) {}
+}
+function enterFs() {
+  const el = document.documentElement, f = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (!f || fsEl()) { lockOrientation(); return; }
+  try { const p = f.call(el, { navigationUI: 'hide' }); if (p && p.then) p.then(lockOrientation, () => {}); else lockOrientation(); } catch (e) {}
+}
+function toggleFs() {
+  if (fsEl()) { const x = document.exitFullscreen || document.webkitExitFullscreen; if (x) x.call(document); } else enterFs();
+}
+let wake = null;
+async function keepAwake() {
+  try { if ('wakeLock' in navigator && document.visibilityState === 'visible' && !wake) {
+    wake = await navigator.wakeLock.request('screen'); wake.addEventListener('release', () => { wake = null; }); } } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && started) keepAwake(); });
+if (!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen)) $('#bFs').style.display = 'none';
+
+async function askMotion() {
+  const DOE = window.DeviceOrientationEvent;
+  if (DOE && typeof DOE.requestPermission === 'function') {       // iPhone: hay que pedir permiso con un toque
+    try { return (await DOE.requestPermission()) === 'granted'; } catch (e) { return false; }
+  }
+  return !!DOE;
+}
+
+async function launch() {
+  // todo lo que exige "un toque del usuario" va primero, antes de esperar nada
+  if (!standalone()) enterFs();
+  ensureAudioGraph();
+  if (player.list.length && player.idx < 0) playIdx(cfg.shuffle ? Math.floor(Math.random() * player.list.length) : 0);
+  const motionOk = askMotion();
+  started = true; ori.needCenter = true;
+  intro.classList.add('off');
+  keepAwake(); setSongUI(); showHud();
+  if (await motionOk) {
+    window.addEventListener('deviceorientation', onOrient);
+    setTimeout(() => {
+      if (!ori.events) toast('No llegó señal del giroscopio: arrastra con el dedo para mirar');
+      else if (!cfg.gyro) toast('Giroscopio apagado en ajustes: arrastra para mirar');
+    }, 1800);
+  } else toast('Sin permiso de movimiento: arrastra con el dedo para mirar');
+}
+
+$('#go').addEventListener('click', launch);
+$('#pickIntro').addEventListener('click', pickFiles);
+$('#bAdd').addEventListener('click', () => { pickFiles(); showHud(); });
+$('#bAdd2').addEventListener('click', pickFiles);
+$('#bClear').addEventListener('click', clearSongs);
+$('#bPlay').addEventListener('click', () => { togglePlay(); showHud(); });
+$('#bPrev').addEventListener('click', () => { ensureAudioGraph(); if (audio.currentTime > 4) audio.currentTime = 0; else playIdx(player.idx - 1); showHud(); });
+$('#bNext').addEventListener('click', () => { ensureAudioGraph(); playIdx(nextIdx(1)); showHud(); });
+$('#bShuf').addEventListener('click', () => { cfg.shuffle = !cfg.shuffle; saveCfg(); setSongUI(); toast(cfg.shuffle ? 'Orden aleatorio' : 'En orden'); showHud(); });
+$('#bCfg').addEventListener('click', openSheet);
+$('#bClose').addEventListener('click', closeSheet);
+$('#bFs').addEventListener('click', () => { toggleFs(); showHud(); });
+$('#bCenter').addEventListener('click', () => { recenter(); toast('Mirando al frente'); showHud(); });
+$('#bReset').addEventListener('click', () => {
+  const keep = { shuffle: cfg.shuffle, keepSongs: cfg.keepSongs };
+  Object.assign(cfg, DEF, keep); saveCfg(); syncSettings(); buildStars(cfg.count); scaleMul = 1; bakeSky(); toast('Ajustes restablecidos');
+});
+const seekEl = $('#seek');
+seekEl.addEventListener('input', () => { seeking = true; const d = audio.duration; if (isFinite(d)) audio.currentTime = seekEl.value / 1000 * d; showHud(); });
+seekEl.addEventListener('change', () => { seeking = false; });
+hud.addEventListener('pointerdown', () => showHud());
+
+// gestos sobre el espacio: toque = controles, doble toque = al frente, mantener = velocidad luz, arrastrar = mirar
+let g = null, lastTap = 0, tapTimer = 0;
+canvas.addEventListener('pointerdown', e => {
+  if (!started || g) return;
+  if (!sheet.classList.contains('off')) { closeSheet(); return; }
+  try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+  g = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, t: performance.now(), moved: false, turbo: false };
+  g.timer = setTimeout(() => { if (g && !g.moved) { g.turbo = true; turboOn = true; hideHud(); } }, 320);
+});
+canvas.addEventListener('pointermove', e => {
+  if (!g || e.pointerId !== g.id) return;
+  const dx = e.clientX - g.lx, dy = e.clientY - g.ly; g.lx = e.clientX; g.ly = e.clientY;
+  if (!g.moved && Math.hypot(e.clientX - g.x, e.clientY - g.y) > 10) g.moved = true;
+  if (!g.moved) return;
+  const k = 2 * Math.atan(Math.tan(fovNow * D2R / 2)) / Math.min(canvas.clientWidth, canvas.clientHeight);
+  ori.manYaw += dx * k;
+  if (!gyroActive()) ori.manPitch = clamp(ori.manPitch + dy * k, -1.45, 1.45);
+});
+function endPointer(e) {
+  if (!g || e.pointerId !== g.id) return;
+  clearTimeout(g.timer);
+  const tap = !g.moved && !g.turbo && performance.now() - g.t < 320;
+  if (g.turbo) turboOn = false;
+  g = null;
+  if (!tap) return;
+  const now = performance.now();
+  if (now - lastTap < 300) { clearTimeout(tapTimer); lastTap = 0; recenter(); toast('Mirando al frente'); }
+  else { lastTap = now; tapTimer = setTimeout(() => { hud.classList.contains('off') ? showHud() : hideHud(); }, 300); }
+}
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+/* ------------------------------------------------------------------ arranque */
+if (!gl) { $('#fatal').style.display = 'grid'; intro.classList.add('off'); }
+else {
+  try { initGL(); } catch (e) { $('#fatal').textContent = 'Error de gráficos: ' + e.message; $('#fatal').style.display = 'grid'; }
+  canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); glLost = true; });
+  canvas.addEventListener('webglcontextrestored', () => { try { initGL(); glLost = false; } catch (e) {} });
+  requestAnimationFrame(t => { last = t; frame(t); });
+}
+syncSettings(); setSongUI(); setIntroNote();
+DB.all().then(recs => {
+  if (!recs || !recs.length) return;
+  player.list = recs.map(r => ({ id: r.id, name: r.name, blob: r.blob })).concat(player.list);
+  renderSongs(); setSongUI(); setIntroNote();
+}).catch(() => {});
+
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
